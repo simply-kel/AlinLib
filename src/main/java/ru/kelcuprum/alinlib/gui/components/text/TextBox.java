@@ -44,7 +44,7 @@ public class TextBox extends AbstractWidget {
         super.setPosition(x, y);
     }
     public void onPress() {
-        this.onPress.onPress(this);
+        if(onPress != null) this.onPress.onPress(this);
     }
 
     @Override
@@ -53,7 +53,7 @@ public class TextBox extends AbstractWidget {
     }
 
     @Override
-    protected void renderWidget(GuiGraphics guiGraphics, int i, int j, float f) {
+    public void renderWidget(GuiGraphics guiGraphics, int i, int j, float f) {
         if(isHovered() && tooltipMessage != null){
             guiGraphics.renderTooltip(Minecraft.getInstance().font, tooltipMessage, i, j);
         }

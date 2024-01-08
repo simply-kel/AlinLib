@@ -9,12 +9,15 @@ import ru.kelcuprum.alinlib.AlinLib;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class Localization {
+    private Parser parser;
     private static final int codes = 23;
     private static final Map<String, String> formatCodes = IntStream.range(0, codes)
             .boxed()
@@ -31,6 +34,7 @@ public class Localization {
         this.modID = modID;
         this.filePath = filePath;
     }
+    // Получить
     private String getCodeLocalization(){
         try{
             return Minecraft.getInstance().options.languageCode;
@@ -41,9 +45,9 @@ public class Localization {
     public JsonObject getJSONFile(){
         try {
             Minecraft CLIENT = Minecraft.getInstance();
-            File localizationFile = new File(CLIENT.gameDirectory + filePath + getCodeLocalization() + ".json");
-            if (localizationFile.exists()) {
-                return GsonHelper.parse(Files.readString(localizationFile.toPath()));
+            Path localizationFile = CLIENT.gameDirectory.toPath().resolve(String.format("%s/%s.json", filePath, getCodeLocalization()));//new File(CLIENT.gameDirectory + filePath + getCodeLocalization() + ".json");
+            if (localizationFile.toFile().exists()) {
+                return GsonHelper.parse(Files.readString(localizationFile));
             } else {
                 return new JsonObject();
             }
@@ -56,29 +60,51 @@ public class Localization {
         return getLocalization(key, false);
     }
     public String getLocalization(String key, boolean clearColor){
+        return getLocalization(key, clearColor, true);
+    }
+    public String getLocalization(String key, boolean clearColor, boolean parse){
         String text;
         try {
             JsonObject JSONLocalization = getJSONFile();
-            if(JSONLocalization.get(key) != null && !JSONLocalization.get(key).isJsonNull()) text = getText(modID+ "." + key).getString();
+            if(JSONLocalization.get(key) == null && !JSONLocalization.get(key).isJsonNull()) text = getText(modID+ "." + key).getString();
             else text = JSONLocalization.get(key).getAsString();
         } catch (Exception ex) {
             AlinLib.log(ex.getLocalizedMessage());
-            text = getText(modID+ "." + key).getString();
+            text = getDefaultLocalization(key);
         }
-        return clearColor ? clearFormatCodes(text) : fixFormatCodes(text);
+        text = clearColor ? clearFormatCodes(text) : fixFormatCodes(text);
+        return parse ? getParsedText(text) : text;
     }
+    public String getParsedText(String content){
+        if(parser == null) return content;
+        return parser.parser(content);
+    }
+    public String getDefaultLocalization(String key){
+        return getText(modID+ "." + key).getString();
+    }
+    public void resetLocalization(String key){
+        setLocalization(key, getDefaultLocalization(key));
+    }
+    public interface Parser {
+        String parser(String content);
+    }
+    // Заменить
     public void setLocalization(String type, String text){
         try {
             JsonObject JSONLocalization = getJSONFile();
             JSONLocalization.addProperty(type, text);
             Minecraft CLIENT = Minecraft.getInstance();
-            File localizationFile = new File(CLIENT.gameDirectory + filePath+getCodeLocalization()+".json");
-            Files.createDirectories(localizationFile.toPath().getParent());
-            Files.writeString(localizationFile.toPath(), JSONLocalization.toString());
+            Path localizationFile = CLIENT.gameDirectory.toPath().resolve(String.format("%s/%s.json", filePath, getCodeLocalization()));
+            Files.createDirectories(localizationFile.getParent());
+            Files.writeString(localizationFile, JSONLocalization.toString());
         } catch (Exception e){
             e.printStackTrace();
         }
     }
+    public void setParser(Parser parser){
+        this.parser = parser;
+    }
+
     // FOR EVERYTHING FUNCTION NOT IN THIS CLASS
     public static String getRounding(double number){return getRounding(number, false);}
     public static String getRounding(double number, boolean isToInt){

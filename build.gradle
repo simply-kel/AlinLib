@@ -1,26 +1,49 @@
 plugins {
     id 'dev.architectury.loom' version '1.4-SNAPSHOT'
-    id 'com.github.johnrengelman.shadow' version '8.1.1'
     id 'maven-publish'
+}
+def getGitHash = { ->
+    def stdout = new ByteArrayOutputStream()
+    exec {
+        commandLine 'git', 'rev-parse', '--short', 'HEAD'
+        standardOutput = stdout
+    }
+    return stdout.toString().trim()
 }
 
 archivesBaseName = project.archives_base_name
-version = project.mod_version
+version_public = project.version_public
+version = version_public == "true" ? project.mod_version : "${project.mod_version}+git.${getGitHash()}"
 group = project.maven_group
+
+sourceSets {
+    demoClient {
+        compileClasspath += main.compileClasspath
+        runtimeClasspath += main.runtimeClasspath
+
+        compileClasspath += main.output
+        runtimeClasspath += main.output
+    }
+}
 
 loom {
     silentMojangMappingsLicense()
 
+    runs {
+        demoClient {
+            client()
+            name = "Demo Client"
+            source sourceSets.demoClient
+        }
+    }
+
     accessWidenerPath = file("src/main/resources/alinlib.accesswidener")
 }
+
 repositories {
     mavenCentral()
     maven { url = "https://maven.terraformersmc.com/releases" } // MODMENU
     maven { url = "https://maven.parchmentmc.org" } // MAPPINGS
-}
-
-configurations {
-    shade
 }
 
 dependencies {
@@ -62,19 +85,6 @@ java {
     withSourcesJar()
 }
 
-// Produce a fat-jar of all shaded dependencies
-shadowJar {
-    configurations = [project.configurations.shade]
-    destinationDirectory.set(layout.buildDirectory.dir('devlibs'))
-}
-
-/*remapJar {
-    dependsOn tasks.shadowJar
-    inputFile.set(tasks.shadowJar.archiveFile)
-}*/
-
-components.java.withVariantsFromConfiguration(configurations.shadowRuntimeElements) { skip() }
-
 jar {
     from("LICENSE") {
         rename { "${it}_${project.archivesBaseName}"}
@@ -91,9 +101,13 @@ publishing {
 
     // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
     repositories {
-        // Add repositories to publish to here.
-        // Notice: This block does NOT have the same function as the block in the top level.
-        // The repositories here will be used for publishing your artifact, not for
-        // retrieving dependencies.
+        maven {
+            name = "KelCuprum"
+            url = "https://repo.kelcuprum.ru/developer"
+            credentials {
+                username = System.getenv("MAVEN_USERNAME")
+                password = System.getenv("MAVEN_PASSWORD")
+            }
+        }
     }
 }

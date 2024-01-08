@@ -5,8 +5,10 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.util.FormattedCharSequence;
 import ru.kelcuprum.alinlib.config.Config;
 import ru.kelcuprum.alinlib.gui.InterfaceUtils;
+import ru.kelcuprum.alinlib.gui.components.Resetable;
+import ru.kelcuprum.alinlib.gui.components.editbox.base.EditBoxString;
 
-public class EditBoxColor extends EditBoxString {
+public class EditBoxColor extends EditBoxString implements Resetable {
     public int volume;
     public int defaultConfig;
     public Config config;
@@ -25,13 +27,12 @@ public class EditBoxColor extends EditBoxString {
         this.defaultConfig = defaultConfig;
         this.volume = config.getNumber(typeConfig, defaultConfig).intValue();
 
-        setMaxLength(20);
-        setFormatter((string, integer) -> FormattedCharSequence.forward(string.toUpperCase(), Style.EMPTY.withColor(volume)));
+        setMaxLength(16);
+        setFormatter((string, integer) -> FormattedCharSequence.forward(string.toUpperCase(), Style.EMPTY.withColor(getColor())));
         setValue(Integer.toHexString(volume));
-//        setFilter(((ConfigValueDuck) this.value).getValueSpec()::test);
         setResponder(string -> {
             try {
-                this.volume = (int) Long.parseLong(string, 16);
+                this.volume = (int) Long.parseLong(string.toUpperCase(), 16);
                 config.setNumber(typeConfig, volume);
 
                 setError(false);
@@ -42,7 +43,21 @@ public class EditBoxColor extends EditBoxString {
     }
 
     @Override
+    protected int getPositionContent(String content) {
+        int pos = getX() + getWidth() - font.width(content.toUpperCase()) - ((getHeight() - 8) / 2);
+
+        if (getX() + font.width(getMessage()) + ((getHeight() - 8) / 2) * 2 > pos)
+            pos = getX() + font.width(getMessage()) + ((getHeight() - 8) / 2) * 2;
+
+        return pos;
+    }
+    @Override
     public int getColor() {
-        return this.volume;
+        return getError() ? InterfaceUtils.Colors.GROUPIE : this.volume;
+    }
+
+    @Override
+    public void resetValue() {
+        setValue(Integer.toHexString(this.defaultConfig));
     }
 }
